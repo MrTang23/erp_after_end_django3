@@ -46,5 +46,7 @@ urlpatterns = [
     path('getApprovalDialogData', order_views.get_approval_dialog_data),
     path('handelApprovalResult', order_views.handel_approval_result),
     path('getProductStock',product_views.get_product_stock),
-    path('getMaterialNameById',warehouse_views.get_material_name_by_id)
+    path('getMaterialNameById',warehouse_views.get_material_name_by_id),
+    path('getAllMaterialOrderTestId',order_views.get_all_material_test_order_id),
+    path('makeMaterialTestOrder',order_views.make_material_test_order)
 ]

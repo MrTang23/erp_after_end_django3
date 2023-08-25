@@ -105,6 +105,76 @@ def make_production_order(request):
         return JsonResponse(res)
 
 
+# 创建试料指令单
+def make_material_test_order(request):
+    body = json.loads(request.body)
+    if body.get('role_id') == 5:
+        # 写入生产指令单表
+        order_models.MaterialTestOrder.objects.create(apply_user_id=body.get('user_id'),
+                                                      create_time=body.get('create_time'),
+                                                      material_test_order_id=body.get('material_test_order_id'),
+                                                      custom=body.get('custom'),
+                                                      mould_name=body.get('mould_name'),
+                                                      machine_name=body.get('machine_name'),
+                                                      material_test_order_img=body.get('material_test_order_img'),
+                                                      test_reason=body.get('test_reason'),
+                                                      )
+        material_list = body.get('material_list')
+        production_list = body.get('production_list')
+        # 更新材料连接表
+        for material_item in material_list:
+            if warehouse_models.RawMaterial.objects.filter(material_id=material_item.get('material_id')):
+                order_models.LinkMaterialTestByMaterial.objects.create(
+                    material_test_order_id=body.get('material_test_order_id'),
+                    material_id=material_item.get(
+                        'material_id'),
+                    material_order_weight=material_item.get(
+                        'material_order_weight'),
+                    material_order_kind=material_item.get(
+                        'material_order_kind')
+                )
+            else:
+                order_models.MaterialTestOrder.objects.filter(
+                    material_test_order_id=body.get('material_test_order_id')).delete()
+                res = {
+                    'code': 0,
+                    'msg': "原料名称错误"
+                }
+                return JsonResponse(res)
+        # 更新产品连接表
+        for product_item in production_list:
+            if product_models.Product.objects.filter(product_name=product_item.get('product_name')):
+                order_models.LinkMaterialTestByProduct.objects.create(
+                    material_test_order_id=body.get('material_test_order_id'),
+                    product_name=product_item.get(
+                        'product_name'),
+                    product_number=product_item.get(
+                        'product_number'),
+                    if_semi_finished=product_item.get('if_semi_finished')
+                )
+            else:
+                order_models.MaterialTestOrder.objects.filter(
+                    material_test_order_id=body.get('material_test_order_id')).delete()
+                order_models.LinkMaterialTestByMaterial.objects.filter(
+                    material_test_order_id=body.get('material_test_order_id')).delete()
+                res = {
+                    'code': 0,
+                    'msg': "产品名称错误"
+                }
+                return JsonResponse(res)
+        res = {
+            'code': 1,
+            'msg': "试料指令单创建成功"
+        }
+        return JsonResponse(res)
+    else:
+        res = {
+            'code': 0,
+            'msg': "权限不足"
+        }
+        return JsonResponse(res)
+
+
 # 获取审批弹窗的数据
 def get_approval_dialog_data(request):
     body = json.loads(request.body)
@@ -326,6 +396,69 @@ def get_approval_dialog_data(request):
             'msg': "获取产品出货内容成功"
         }
         return JsonResponse(res)
+    if body.get('form_name') == '试料指令申请':
+        material_test_order_id = body.get('form_id')
+        material_test_queryset = order_models.MaterialTestOrder.objects.filter(
+            material_test_order_id=material_test_order_id).first()
+        material_test_material_list_all = order_models.LinkMaterialTestByMaterial.objects.filter(
+            material_test_order_id=material_test_order_id)
+        material_list = []
+        for item in material_test_material_list_all:
+            material_id = item.material_id
+            row_data = warehouse_models.RawMaterial.objects.filter(material_id=material_id).first()
+
+            material_kind = item.material_order_kind
+            if material_kind == 0:
+                material_kind = '原料'
+            else:
+                material_kind = '水口料'
+            material_order_weight = item.material_order_weight
+            temp_obj = {
+                'material_id': material_id,
+                'material_name': row_data.material_name,
+                'material_type': row_data.material_type,
+                'material_kind': material_kind,
+                'material_color': row_data.material_color,
+                'material_product_supplier': row_data.material_product_supplier,
+                'material_supplier': row_data.material_supplier,
+                'remark': row_data.remark,
+                'material_weight': material_order_weight
+            },
+            material_list.append(temp_obj[0])
+        material_test_product_list_all = order_models.LinkProductionOrderByProduct.objects.filter(
+            material_test_order_id=material_test_order_id)
+        product_list = []
+        for item in material_test_product_list_all:
+            product_name = item.product_name
+            product_kind = item.if_semi_finished
+            if product_kind == 0:
+                product_kind = '成品'
+            else:
+                product_kind = '半成品'
+            product_number = item.product_number
+            temp_obj = {
+                'product_name': product_name,
+                'product_kind': product_kind,
+                'product_number': product_number,
+            },
+            product_list.append(temp_obj[0])
+        res = {
+            'code': 1,
+            'data': {
+                'form_name': '试料指令申请',
+                'create_time': material_test_queryset.create_time,
+                'material_test_order_img': settings.IMAGE + '/' + material_test_queryset.production_order_img,
+                'material_test_order_id': material_test_order_id,
+                'custom': material_test_queryset.custom,
+                'mould_name': material_test_queryset.mould_name,
+                'machine_name':material_test_queryset.machine_name,
+                'material_list': material_list,
+                'product_list': product_list,
+                'reason':material_test_queryset.test_reason
+            },
+            'msg': "获取指令单审批内容成功"
+        }
+        return JsonResponse(res)
     else:
         res = {
             'code': 0,
@@ -486,7 +619,7 @@ def handel_approval_result(request):
             if status == 1:
                 product_models.ProductShipmentNormal.objects.filter(product_shipment_id=product_shipment_id).update(
                     quality_confirm=1, warehousing_confirm=0, quality_confirm_time=get_time(request))
-                print(product_shipment_id,body)
+                print(product_shipment_id, body)
             else:
                 product_models.ProductShipmentNormal.objects.filter(product_shipment_id=product_shipment_id).update(
                     quality_confirm=-1, quality_confirm_time=get_time(request))
@@ -531,6 +664,42 @@ def handel_approval_result(request):
             'msg': "处理产品出货成功"
         }
         return JsonResponse(res)
+    elif body.get('form_name') == '试料指令申请':
+        material_test_order_id = body.get('id')
+        if user_id == 2:
+            if status == 1:
+                order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
+                    deputy_general_manager_confirm=1, warehousing_confirm=0,
+                    deputy_general_manager_confirm_time=get_time(request))
+            else:
+                order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
+                    deputy_general_manager_confirm=-1,
+                    deputy_general_manager_confirm_time=get_time(request))
+        if user_id == 6:
+            if status == 1:
+                order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
+                    warehousing_confirm=1, warehousing_confirm_time=get_time(request))
+                material_test_list = order_models.LinkMaterialTestByMaterial.objects.filter(
+                    material_test_order_id= material_test_order_id)
+                for item in material_test_list:
+                    material_id = item.material_id
+                    material_kind = item.material_order_kind
+                    material_queryset = warehouse_models.RawMaterial.objects.filter(material_id=material_id).first()
+                    if material_kind == 0:
+                        warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
+                            material_weight=material_queryset.material_weight - item.material_weight)
+                    else:
+                        warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
+                            recycle_material_weight=material_queryset.recycle_material_weight - item.material_weight)
+            else:
+                order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
+                    warehousing_confirm=-1,
+                    warehousing_confirm_time=get_time(request))
+        res = {
+            'code': 1,
+            'msg': "处理试料指令成功"
+        }
+        return JsonResponse(res)
     else:
         res = {
             'code': 0,
@@ -556,6 +725,28 @@ def get_all_production_order_id(request):
         'code': 1,
         'data': select_list,
         'msg': '获取指令单号列表成功'
+    }
+    return JsonResponse(res)
+
+
+# 获取所有可用的试料指令单
+def get_all_material_test_order_id(request):
+    material_test_order_id_list = list(
+        order_models.MaterialTestOrder.objects.values_list('material_test_order_id', flat=True))
+    select_list = []
+    for item in material_test_order_id_list:
+        material_test_order_list = order_models.MaterialTestOrder.objects.filter(material_test_order_id=item).first()
+        if material_test_order_list.deputy_general_manager_confirm != 1 and material_test_order_list.warehousing_confirm != 1:
+            continue
+        temp_obj = {
+            'value': item,
+            'label': item
+        }
+        select_list.append(temp_obj)
+    res = {
+        'code': 1,
+        'data': select_list,
+        'msg': '获取试料单号列表成功'
     }
     return JsonResponse(res)
 
@@ -765,8 +956,10 @@ def six_approval_number(request):
         list(warehouse_models.MaterialGetNormal.objects.values_list('warehousing_confirm', flat=True)))
     material_out_factory_number = get_zero_number(
         list(warehouse_models.MaterialOutFactory.objects.values_list('warehousing_confirm', flat=True)))
+    material_test_order_number = get_zero_number(
+        list(order_models.MaterialTestOrder.objects.values_list('warehousing_confirm', flat=True)))
     return (product_shipment_list_number + production_storage_normal_list_number + material_purchase_list_number +
-            material_back_number + material_get_number + material_out_factory_number)
+            material_back_number + material_get_number + material_out_factory_number+material_test_order_number)
 
 
 def six_approval_list(request):
@@ -788,7 +981,10 @@ def six_approval_list(request):
             'apply_user_id', 'material_get_id'), '材料领取申请') + approval_list_cycle(
         warehouse_models.MaterialOutFactory.objects.filter(warehousing_confirm=0).values_list(
             'create_time',
-            'apply_user_id', 'material_out_factory_id'), '材料出厂申请')
+            'apply_user_id', 'material_out_factory_id'), '材料出厂申请')+approval_list_cycle(
+        order_models.MaterialTestOrder.objects.filter(warehousing_confirm=0).values_list(
+            'create_time',
+            'apply_user_id', 'material_test_order_id'), '试料指令申请')
 
     return approval_list
 
@@ -797,14 +993,19 @@ def six_approval_list(request):
 def two_approval_number(request):
     material_out_factory_number = get_zero_number(
         list(warehouse_models.MaterialOutFactory.objects.values_list('deputy_general_manager_confirm', flat=True)))
-    return material_out_factory_number
+    material_test_order_number = get_zero_number(
+        list(order_models.MaterialTestOrder.objects.values_list('deputy_general_manager_confirm', flat=True)))
+    return material_out_factory_number+material_test_order_number
 
 
 def two_approval_list(request):
-    approval_list = (
+    approval_list = approval_list_cycle(
         warehouse_models.MaterialOutFactory.objects.filter(deputy_general_manager_confirm=0).values_list(
             'create_time',
-            'apply_user_id', 'material_out_factory_id'), '材料出厂申请')
+            'apply_user_id', 'material_out_factory_id'), '材料出厂申请')+approval_list_cycle(
+        order_models.MaterialTestOrder.objects.filter(deputy_general_manager_confirm=0).values_list(
+            'create_time',
+            'apply_user_id', 'material_test_order_id'), '试料指令申请')
 
     return approval_list
 
