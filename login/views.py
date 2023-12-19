@@ -90,3 +90,13 @@ def img_upload(request):
         'msg': '图片上传成功'
     }
     return JsonResponse(res)
+
+
+# 获取图片接口
+def get_image(request):
+    url = request.GET.get('url')
+    path = repr(settings.IMAGE + '/' + url)
+    path = eval(path)
+    path = str(path)
+    file_one = open(path, "rb")
+    return HttpResponse(file_one.read(), content_type='image/jpg')

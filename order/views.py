@@ -15,7 +15,7 @@ def get_time(request):
     current_time = datetime.now()
     month = str(current_time.month)
     day = str(current_time.day)
-    hour = str(current_time.hour)
+    hour = str(current_time.hour + 8)
     minute = str(current_time.minute)
     second = str(current_time.second)
 
@@ -124,6 +124,26 @@ def make_material_test_order(request):
         # 更新材料连接表
         for material_item in material_list:
             if warehouse_models.RawMaterial.objects.filter(material_id=material_item.get('material_id')):
+                row_material_queryset = warehouse_models.RawMaterial.objects.filter(material_id=material_item.get(
+                    'material_id')).first()
+                if material_item.get('material_order_kind') == 0:
+                    if material_item.get('material_order_weight') > row_material_queryset.material_weight:
+                        order_models.MaterialTestOrder.objects.filter(
+                            material_test_order_id=body.get('material_test_order_id')).delete()
+                        res = {
+                            'code': 0,
+                            'msg': "原料库存不足"
+                        }
+                        return JsonResponse(res)
+                if material_item.get('material_order_kind') == 1:
+                    if material_item.get('material_order_weight') > row_material_queryset.recycle_material_weight:
+                        order_models.MaterialTestOrder.objects.filter(
+                            material_test_order_id=body.get('material_test_order_id')).delete()
+                        res = {
+                            'code': 0,
+                            'msg': "水口料库存不足"
+                        }
+                        return JsonResponse(res)
                 order_models.LinkMaterialTestByMaterial.objects.create(
                     material_test_order_id=body.get('material_test_order_id'),
                     material_id=material_item.get(
@@ -231,7 +251,7 @@ def get_approval_dialog_data(request):
             'data': {
                 'form_name': '生产指令单申请',
                 'create_time': production_order_queryset.create_time,
-                'production_order_img': settings.IMAGE + '/' + production_order_queryset.production_order_img,
+                'production_order_img': production_order_queryset.production_order_img,
                 'production_order_id': production_order_id,
                 'custom': production_order_queryset.custom,
                 'mould_name': production_order_queryset.mould_name,
@@ -281,7 +301,7 @@ def get_approval_dialog_data(request):
                 'form_name': '材料领取申请',
                 'material_get_id': material_get_id,
                 'create_time': material_get_normal_queryset.create_time,
-                'material_get_img': settings.IMAGE + '/' + material_get_normal_queryset.material_get_img,
+                'material_get_img': material_get_normal_queryset.material_get_img,
                 'production_order_id': production_order_id,
                 'material_list': material_list
             },
@@ -316,7 +336,7 @@ def get_approval_dialog_data(request):
                 'form_name': '产品入库申请',
                 'product_storage_id': product_storage_id,
                 'create_time': product_storage_queryset.create_time,
-                'product_storage_img': settings.IMAGE + '/' + product_storage_queryset.product_storage_img,
+                'product_storage_img': product_storage_queryset.product_storage_img,
                 'production_order_id': product_storage_queryset.production_order_id,
                 'product_list': product_list
             },
@@ -355,7 +375,7 @@ def get_approval_dialog_data(request):
                 'form_name': '材料入库申请',
                 'material_purchase_id': material_purchase_id,
                 'create_time': material_get_normal_queryset.create_time,
-                'material_purchase_img': settings.IMAGE + '/' + material_get_normal_queryset.delivery_note_img,
+                'material_purchase_img': material_get_normal_queryset.delivery_note_img,
                 'material_list': material_list
             },
             'msg': "获取材料入库内容成功"
@@ -389,7 +409,7 @@ def get_approval_dialog_data(request):
                 'form_name': '产品出货申请',
                 'product_shipment_id': product_shipment_id,
                 'create_time': product_shipment_queryset.create_time,
-                'product_shipment_img': settings.IMAGE + '/' + product_shipment_queryset.product_shipment_img,
+                'product_shipment_img': product_shipment_queryset.product_shipment_img,
                 'production_order_id': product_shipment_queryset.production_order_id,
                 'product_list': product_list
             },
@@ -425,7 +445,7 @@ def get_approval_dialog_data(request):
                 'material_weight': material_order_weight
             },
             material_list.append(temp_obj[0])
-        material_test_product_list_all = order_models.LinkProductionOrderByProduct.objects.filter(
+        material_test_product_list_all = order_models.LinkMaterialTestByProduct.objects.filter(
             material_test_order_id=material_test_order_id)
         product_list = []
         for item in material_test_product_list_all:
@@ -447,16 +467,129 @@ def get_approval_dialog_data(request):
             'data': {
                 'form_name': '试料指令申请',
                 'create_time': material_test_queryset.create_time,
-                'material_test_order_img': settings.IMAGE + '/' + material_test_queryset.production_order_img,
+                'material_test_order_img': material_test_queryset.material_test_order_img,
                 'material_test_order_id': material_test_order_id,
                 'custom': material_test_queryset.custom,
                 'mould_name': material_test_queryset.mould_name,
-                'machine_name':material_test_queryset.machine_name,
+                'machine_name': material_test_queryset.machine_name,
                 'material_list': material_list,
                 'product_list': product_list,
-                'reason':material_test_queryset.test_reason
+                'reason': material_test_queryset.test_reason
             },
             'msg': "获取指令单审批内容成功"
+        }
+        return JsonResponse(res)
+    if body.get('form_name') == '重工入库申请':
+        product_recycle_id = int(body.get('form_id'))
+        product_recycle_queryset = product_models.ProductRecycleNormalOut.objects.filter(
+            product_recycle_id=product_recycle_id).first()
+        link_product_recycle_queryset = product_models.LinkProductRecycleNormalOut.objects.filter(
+            product_recycle_id=product_recycle_id)
+        product_list = []
+        for item in link_product_recycle_queryset:
+            production_order_queryset = order_models.LinkProductionOrderByProduct.objects.filter(
+                production_order_id=product_recycle_queryset.production_order_id,
+                product_name=item.product_name).first()
+            product_kind = production_order_queryset.if_semi_finished
+            if product_kind == 0:
+                product_kind = '成品'
+            else:
+                product_kind = '半成品'
+            temp_obj = {
+                'product_name': item.product_name,
+                'product_number': item.product_number,
+                'product_kind': product_kind
+            }
+            product_list.append(temp_obj)
+        res = {
+            'code': 1,
+            'data': {
+                'form_name': '重工出库申请',
+                'product_shipment_id': product_recycle_id,
+                'create_time': product_recycle_queryset.create_time,
+                'product_shipment_img': product_recycle_queryset.product_recycle_img,
+                'production_order_id': product_recycle_queryset.production_order_id,
+                'product_list': product_list
+            },
+            'msg': "获取产品出货内容成功"
+        }
+        return JsonResponse(res)
+    if body.get('form_name') == '材料出厂申请':
+        material_out_factory_id = int(body.get('form_id'))
+        material_out_factory_queryset = warehouse_models.MaterialOutFactory.objects.filter(
+            material_out_factory_id=material_out_factory_id).first()
+        link_material_out_queryset = (warehouse_models.LinkMaterialOutFactory.objects.filter(
+            material_out_factory_id=material_out_factory_id))
+        material_list = []
+        for item in link_material_out_queryset:
+            material_id = item.material_id
+            row_data = warehouse_models.RawMaterial.objects.filter(material_id=material_id).first()
+
+            if item.material_kind == 0:
+                material_kind = '原料'
+            else:
+                material_kind = '水口料'
+            temp_obj = {
+                'material_id': material_id,
+                'material_name': row_data.material_name,
+                'material_type': row_data.material_type,
+                'material_kind': material_kind,
+                'material_color': row_data.material_color,
+                'material_product_supplier': row_data.material_product_supplier,
+                'material_supplier': row_data.material_supplier,
+                'remark': row_data.remark,
+                'material_weight': item.material_weight,
+                'out_reason':item.remark
+            },
+            material_list.append(temp_obj[0])
+        res = {
+            'code': 1,
+            'data': {
+                'form_name': '材料出厂申请',
+                'material_out_factory_id': material_out_factory_queryset.material_out_factory_id,
+                'create_time': material_out_factory_queryset.create_time,
+                'material_out_factory_img': material_out_factory_queryset.material_out_factory_img,
+                'material_list': material_list
+            },
+            'msg': "获取产品出货内容成功"
+        }
+        return JsonResponse(res)
+    if body.get('form_name') == '材料退库申请':
+        material_back_id = int(body.get('form_id'))
+        material_back_queryset = warehouse_models.MaterialBack.objects.filter(
+            material_back_id=material_back_id).first()
+        link_material_back_queryset = (warehouse_models.LinkMaterialBack.objects.filter(
+            material_back_id=material_back_id))
+        material_list = []
+        for item in link_material_back_queryset:
+            material_id = item.material_id
+            row_data = warehouse_models.RawMaterial.objects.filter(material_id=material_id).first()
+
+            if item.material_back_kind == 0:
+                material_kind = '原料'
+            else:
+                material_kind = '水口料'
+            temp_obj = {
+                'material_id': material_id,
+                'material_name': row_data.material_name,
+                'material_type': row_data.material_type,
+                'material_kind': material_kind,
+                'material_color': row_data.material_color,
+                'material_product_supplier': row_data.material_product_supplier,
+                'material_supplier': row_data.material_supplier,
+                'material_weight': item.material_back_weight
+            },
+            material_list.append(temp_obj[0])
+        res = {
+            'code': 1,
+            'data': {
+                'form_name': '材料退库申请',
+                'material_back_id': material_back_queryset.material_back_id,
+                'create_time': material_back_queryset.create_time,
+                'back_warehouse_img': material_back_queryset.back_warehouse_img,
+                'material_list': material_list
+            },
+            'msg': "获取材料退库内容成功"
         }
         return JsonResponse(res)
     else:
@@ -638,7 +771,7 @@ def handel_approval_result(request):
                     product_kind = product_kind_queryset.if_semi_finished
                     product_shipped_number = product_kind_queryset.product_shipped_number
                     product_shipped_number = product_shipped_number + item.product_number
-                    if product_shipped_number >= product_kind_queryset.product_number:
+                    if product_shipped_number > product_kind_queryset.product_number:
                         res = {
                             'code': 0,
                             'msg': "已超出可出货数量"
@@ -668,29 +801,30 @@ def handel_approval_result(request):
         material_test_order_id = body.get('id')
         if user_id == 2:
             if status == 1:
+                print(material_test_order_id)
                 order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
-                    deputy_general_manager_confirm=1, warehousing_confirm=0,
-                    deputy_general_manager_confirm_time=get_time(request))
+                    deputy_manager_confirm=1, warehousing_confirm=0,
+                    deputy_manager_confirm_time=get_time(request))
             else:
                 order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
-                    deputy_general_manager_confirm=-1,
-                    deputy_general_manager_confirm_time=get_time(request))
+                    deputy_manager_confirm=-1,
+                    deputy_manager_confirm_time=get_time(request))
         if user_id == 6:
             if status == 1:
                 order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
                     warehousing_confirm=1, warehousing_confirm_time=get_time(request))
                 material_test_list = order_models.LinkMaterialTestByMaterial.objects.filter(
-                    material_test_order_id= material_test_order_id)
+                    material_test_order_id=material_test_order_id)
                 for item in material_test_list:
                     material_id = item.material_id
                     material_kind = item.material_order_kind
                     material_queryset = warehouse_models.RawMaterial.objects.filter(material_id=material_id).first()
                     if material_kind == 0:
                         warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
-                            material_weight=material_queryset.material_weight - item.material_weight)
+                            material_weight=material_queryset.material_weight - item.material_order_weight)
                     else:
                         warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
-                            recycle_material_weight=material_queryset.recycle_material_weight - item.material_weight)
+                            recycle_material_weight=material_queryset.recycle_material_weight - item.material_order_weight)
             else:
                 order_models.MaterialTestOrder.objects.filter(material_test_order_id=material_test_order_id).update(
                     warehousing_confirm=-1,
@@ -698,6 +832,130 @@ def handel_approval_result(request):
         res = {
             'code': 1,
             'msg': "处理试料指令成功"
+        }
+        return JsonResponse(res)
+    elif body.get('form_name') == '产品重工申请':
+        product_recycle_id = body.get('id')
+        if user_id == 4:
+            if status == 1:
+                product_models.ProductRecycleNormalOut.objects.filter(product_recycle_id=product_recycle_id).update(
+                    quality_confirm=1, warehousing_confirm=0, quality_confirm_time=get_time(request))
+            else:
+                product_models.ProductRecycleNormalOut.objects.filter(product_recycle_id=product_recycle_id).update(
+                    quality_confirm=-1, quality_confirm_time=get_time(request))
+        if user_id == 6:
+            if status == 1:
+                product_models.ProductRecycleNormalOut.objects.filter(product_recycle_id=product_recycle_id).update(
+                    warehousing_confirm=1, warehousing_confirm_time=get_time(request))
+                link_product_recycle_out_queryset = product_models.LinkProductRecycleNormalOut.objects.filter(
+                    product_recycle_id=product_recycle_id)
+                product_recycle_queryset = product_models.ProductRecycleNormalOut.objects.filter(
+                    product_recycle_id=product_recycle_id).first()
+                production_order_id = product_recycle_queryset.production_order_id
+                for item in link_product_recycle_out_queryset:
+                    product_kind_queryset = order_models.LinkProductionOrderByProduct.objects.filter(
+                        production_order_id=production_order_id, product_name=item.product_name).first()
+                    product_kind = product_kind_queryset.if_semi_finished
+                    product_recycle_number = product_kind_queryset.product_second_shipped_number
+                    product_recycle_number = product_recycle_number + item.product_number
+                    if product_recycle_number >= product_kind_queryset.product_number:
+                        res = {
+                            'code': 0,
+                            'msg': "已超出可出货数量"
+                        }
+                        return JsonResponse(res)
+                    order_models.LinkProductionOrderByProduct.objects.filter(production_order_id=production_order_id,
+                                                                             product_name=item.product_name).update(
+                        product_second_shipped_number=product_recycle_number)
+                    product_queryset = product_models.Product.objects.filter(product_name=item.product_name).first()
+                    if product_kind == 0:
+                        product_number = product_queryset.product_number - item.product_number
+                        product_models.Product.objects.filter(product_name=item.product_name).update(
+                            product_number=product_number)
+                    else:
+                        product_number = product_queryset.product_semi_finished_number - item.product_number
+                        product_models.Product.objects.filter(product_name=item.product_name).update(
+                            product_semi_finished_number=product_number)
+            else:
+                product_models.ProductRecycleNormalOut.objects.filter(product_recycle_id=product_recycle_id).update(
+                    warehousing_confirm=-1, warehousing_confirm_time=get_time(request))
+        res = {
+            'code': 1,
+            'msg': "处理产品重工出库成功"
+        }
+        return JsonResponse(res)
+    elif body.get('form_name') == '材料出厂申请':
+        material_out_factory_id = body.get('id')
+        if user_id == 2:
+            if status == 1:
+                warehouse_models.MaterialOutFactory.objects.filter(material_out_factory_id=material_out_factory_id).update(
+                    deputy_manager_confirm=1, general_manager_confirm=0,deputy_manager_confirm_time=get_time(request))
+            else:
+                warehouse_models.MaterialOutFactory.objects.filter(
+                    material_out_factory_id=material_out_factory_id).update(
+                    deputy_manager_confirm=-1,  deputy_manager_confirm_time=get_time(request))
+        if user_id == 1:
+            if status == 1:
+                warehouse_models.MaterialOutFactory.objects.filter(material_out_factory_id=material_out_factory_id).update(
+                    general_manager_confirm=1, warehousing_confirm=0,general_manager_confirm_time=get_time(request))
+            else:
+                warehouse_models.MaterialOutFactory.objects.filter(
+                    material_out_factory_id=material_out_factory_id).update(
+                    general_manager_confirm=-1,general_manager_confirm_time=get_time(request))
+        if user_id == 6:
+            if status == 1:
+                warehouse_models.MaterialOutFactory.objects.filter(material_out_factory_id=material_out_factory_id).update(
+                    warehousing_confirm=1, warehousing_confirm_time=get_time(request))
+                material_out_list = warehouse_models.LinkMaterialOutFactory.objects.filter(
+                    material_out_factory_id=material_out_factory_id)
+                for item in material_out_list:
+                    material_id = item.material_id
+                    material_queryset = warehouse_models.RawMaterial.objects.filter(material_id=material_id).first()
+                    if item.material_kind == 0:
+                        warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
+                            material_weight=material_queryset.material_weight - item.material_weight)
+                    else:
+                        warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
+                            recycle_material_weight=material_queryset.recycle_material_weight - item.material_weight)
+
+            else:
+                warehouse_models.MaterialOutFactory.objects.filter(material_out_factory_id=material_out_factory_id).update(
+                    warehousing_confirm=-1, warehousing_confirm_time=get_time(request))
+        res = {
+            'code': 1,
+            'msg': "处理材料出厂成功"
+        }
+        return JsonResponse(res)
+    elif body.get('form_name') == '材料退库申请':
+        material_back_id = body.get('id')
+        if user_id == 7:
+            if status == 1:
+                warehouse_models.MaterialBack.objects.filter(material_back_id=material_back_id).update(
+                    factory_manager_confirm=1, warehousing_confirm=0, factory_manager_confirm_time=get_time(request))
+            else:
+                warehouse_models.MaterialBack.objects.filter(material_back_id=material_back_id).update(
+                    factory_manager_confirm=-1, factory_manager_confirm_time=get_time(request))
+        if user_id == 6:
+            if status == 1:
+                warehouse_models.MaterialBack.objects.filter(material_back_id=material_back_id).update(
+                    warehousing_confirm=1, warehousing_confirm_time=get_time(request))
+                material_get_list = warehouse_models.LinkMaterialBack.objects.filter(
+                    material_back_id=material_back_id)
+                for item in material_get_list:
+                    material_id = item.material_id
+                    material_queryset = warehouse_models.RawMaterial.objects.filter(material_id=material_id).first()
+                    if item.material_back_kind == 0:
+                        warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
+                            material_weight=material_queryset.material_weight + item.material_back_weight)
+                    else:
+                        warehouse_models.RawMaterial.objects.filter(material_id=material_id).update(
+                            recycle_material_weight=material_queryset.recycle_material_weight + item.material_back_weight)
+            else:
+                warehouse_models.MaterialBack.objects.filter(material_back_id=material_back_id).update(
+                    warehousing_confirm=-1, warehousing_confirm_time=get_time(request))
+        res = {
+            'code': 1,
+            'msg': "处理材料退库成功"
         }
         return JsonResponse(res)
     else:
@@ -714,13 +972,12 @@ def get_all_production_order_id(request):
     select_list = []
     for item in production_order_id_list:
         production_order_list = order_models.ProductionOrder.objects.filter(production_order_id=item).first()
-        if production_order_list.quality_confirm != 1 and production_order_list.factory_manager_confirm != 1:
-            continue
-        temp_obj = {
-            'value': item,
-            'label': item
-        }
-        select_list.append(temp_obj)
+        if production_order_list.quality_confirm == 1 and production_order_list.factory_manager_confirm == 1:
+            temp_obj = {
+                'value': item,
+                'label': item
+            }
+            select_list.append(temp_obj)
     res = {
         'code': 1,
         'data': select_list,
@@ -736,7 +993,7 @@ def get_all_material_test_order_id(request):
     select_list = []
     for item in material_test_order_id_list:
         material_test_order_list = order_models.MaterialTestOrder.objects.filter(material_test_order_id=item).first()
-        if material_test_order_list.deputy_general_manager_confirm != 1 and material_test_order_list.warehousing_confirm != 1:
+        if material_test_order_list.deputy_manager_confirm != 1 and material_test_order_list.warehousing_confirm != 1:
             continue
         temp_obj = {
             'value': item,
@@ -812,7 +1069,7 @@ def get_product_info_from_production_order_id(request):
         product_received_number = production_order_product_list.product_received_number
         product_shipped_number = production_order_product_list.product_shipped_number
         product_number = production_order_product_list.product_number
-        product_can_storage = product_number - product_shipped_number - product_received_number
+        product_can_storage = product_number - product_received_number
         temp_obj = {
             'id': list_id,
             'product_name': product_name,
@@ -848,7 +1105,7 @@ def get_approval_list(request):
         if user_id == 7:
             list_all = seven_approval_list(request)
         if user_id == 1:
-            liat_all = one_approval_list(request)
+            list_all = one_approval_list(request)
         res = {
             'code': 1,
             'data': list_all,
@@ -922,7 +1179,10 @@ def four_approval_number(request):
         list(warehouse_models.MaterialPurchase.objects.values_list('quality_confirm', flat=True)))
     product_shipment_list_number = get_zero_number(
         list(product_models.ProductShipmentNormal.objects.values_list('quality_confirm', flat=True)))
-    return production_order_list_number + production_storage_normal_list_number + material_purchase_list_number + product_shipment_list_number
+    product_recycle_out_number = get_zero_number(
+        list(product_models.ProductRecycleNormalOut.objects.values_list('quality_confirm', flat=True)))
+    return (production_order_list_number + production_storage_normal_list_number + material_purchase_list_number +
+            product_shipment_list_number + product_recycle_out_number)
 
 
 def four_approval_list(request):
@@ -938,7 +1198,10 @@ def four_approval_list(request):
             'apply_user_id', 'production_order_id'), '生产指令单申请') + approval_list_cycle(
         product_models.ProductShipmentNormal.objects.filter(quality_confirm=0).values_list(
             'create_time',
-            'apply_user_id', 'product_shipment_id'), '产品出货申请')
+            'apply_user_id', 'product_shipment_id'), '产品出货申请') + approval_list_cycle(
+        product_models.ProductRecycleNormalOut.objects.filter(quality_confirm=0).values_list(
+            'create_time',
+            'apply_user_id', 'product_recycle_id'), '重工出库申请')
     return approval_list
 
 
@@ -958,8 +1221,11 @@ def six_approval_number(request):
         list(warehouse_models.MaterialOutFactory.objects.values_list('warehousing_confirm', flat=True)))
     material_test_order_number = get_zero_number(
         list(order_models.MaterialTestOrder.objects.values_list('warehousing_confirm', flat=True)))
+    product_recycle_out = get_zero_number(
+        list(product_models.ProductRecycleNormalOut.objects.values_list('warehousing_confirm', flat=True)))
     return (product_shipment_list_number + production_storage_normal_list_number + material_purchase_list_number +
-            material_back_number + material_get_number + material_out_factory_number+material_test_order_number)
+            material_back_number + material_get_number + material_out_factory_number + material_test_order_number +
+            product_recycle_out)
 
 
 def six_approval_list(request):
@@ -981,10 +1247,13 @@ def six_approval_list(request):
             'apply_user_id', 'material_get_id'), '材料领取申请') + approval_list_cycle(
         warehouse_models.MaterialOutFactory.objects.filter(warehousing_confirm=0).values_list(
             'create_time',
-            'apply_user_id', 'material_out_factory_id'), '材料出厂申请')+approval_list_cycle(
+            'apply_user_id', 'material_out_factory_id'), '材料出厂申请') + approval_list_cycle(
         order_models.MaterialTestOrder.objects.filter(warehousing_confirm=0).values_list(
             'create_time',
-            'apply_user_id', 'material_test_order_id'), '试料指令申请')
+            'apply_user_id', 'material_test_order_id'), '试料指令申请') + approval_list_cycle(
+        product_models.ProductRecycleNormalOut.objects.filter(warehousing_confirm=0).values_list(
+            'create_time',
+            'apply_user_id', 'product_recycle_id'), '重工领出申请')
 
     return approval_list
 
@@ -992,18 +1261,18 @@ def six_approval_list(request):
 # 副总审批数
 def two_approval_number(request):
     material_out_factory_number = get_zero_number(
-        list(warehouse_models.MaterialOutFactory.objects.values_list('deputy_general_manager_confirm', flat=True)))
+        list(warehouse_models.MaterialOutFactory.objects.values_list('deputy_manager_confirm', flat=True)))
     material_test_order_number = get_zero_number(
-        list(order_models.MaterialTestOrder.objects.values_list('deputy_general_manager_confirm', flat=True)))
-    return material_out_factory_number+material_test_order_number
+        list(order_models.MaterialTestOrder.objects.values_list('deputy_manager_confirm', flat=True)))
+    return material_out_factory_number + material_test_order_number
 
 
 def two_approval_list(request):
     approval_list = approval_list_cycle(
-        warehouse_models.MaterialOutFactory.objects.filter(deputy_general_manager_confirm=0).values_list(
+        warehouse_models.MaterialOutFactory.objects.filter(deputy_manager_confirm=0).values_list(
             'create_time',
-            'apply_user_id', 'material_out_factory_id'), '材料出厂申请')+approval_list_cycle(
-        order_models.MaterialTestOrder.objects.filter(deputy_general_manager_confirm=0).values_list(
+            'apply_user_id', 'material_out_factory_id'), '材料出厂申请') + approval_list_cycle(
+        order_models.MaterialTestOrder.objects.filter(deputy_manager_confirm=0).values_list(
             'create_time',
             'apply_user_id', 'material_test_order_id'), '试料指令申请')
 
@@ -1051,3 +1320,40 @@ def one_approval_list(request):
             'apply_user_id', 'material_out_factory_id'), '材料出厂申请')
 
     return approval_list
+
+
+# 获取生产指令单列表
+def get_production_order_list(request):
+    production_order_list = order_models.ProductionOrder.objects.all().order_by('-production_order_id')[:50]
+    list = []
+    for item in production_order_list:
+        if item.quality_confirm == 0:
+            quality_confirm = '未审核'
+            factory_manager_confirm = '未审核'
+        elif item.quality_confirm == 1:
+            quality_confirm = '同意'
+            if item.factory_manager_confirm == 0:
+                factory_manager_confirm = '未审核'
+            elif item.factory_manager_confirm == -1:
+                factory_manager_confirm = '拒绝'
+            else:
+                factory_manager_confirm = '同意'
+        else:
+            quality_confirm = '拒绝'
+            factory_manager_confirm = '拒绝'
+        temp_obj = {
+            'production_order_id': item.production_order_id,
+            'create_time': item.create_time,
+            'mould_name': item.mould_name,
+            'custom': item.custom,
+            'custom_deadline': item.custom_deadline,
+            'quality_confirm': quality_confirm,
+            'factory_manager_confirm': factory_manager_confirm
+        }
+        list.append(temp_obj)
+    res = {
+        'code': 1,
+        'data': list,
+        'msg': '获取指令单列表成功'
+    }
+    return JsonResponse(res)

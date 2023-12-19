@@ -55,3 +55,49 @@ class LinkProductShipmentNormal(models.Model):
     product_shipment_id = models.IntegerField(verbose_name='产品出货id', default=0)
     product_name = models.CharField(verbose_name='产品名', default=0, max_length=32)
     product_number = models.FloatField(verbose_name='产品数量', default=0)
+
+
+# 产品重工出库表
+class ProductRecycleNormalOut(models.Model):
+    product_recycle_id = models.AutoField(verbose_name='产品出货id', primary_key=True)
+    apply_user_id = models.IntegerField(verbose_name='申请人id', default=3)
+    create_time = models.CharField(verbose_name='申请创建时间', max_length=32, default='未填写')
+    production_order_id = models.CharField(verbose_name='生产指令单id', max_length=32)
+    quality_confirm = models.IntegerField(verbose_name='品控确认', default=0)
+    product_recycle_img = models.CharField(verbose_name='产品重工单', max_length=32)
+    warehousing_confirm = models.IntegerField(verbose_name='仓库确认', default=2)
+    quality_confirm_time = models.CharField(verbose_name='品控确认时间', max_length=32,
+                                            default='yyyy-mm-dd hh:mm:ss')
+    warehousing_confirm_time = models.CharField(verbose_name='仓库确认时间', max_length=32,
+                                                default='yyyy-mm-dd hh:mm:ss')
+    recycle_reason = models.CharField(verbose_name='产品重工原因', max_length=100)
+
+
+# 连接产品重工出库表
+class LinkProductRecycleNormalOut(models.Model):
+    index = models.AutoField(verbose_name='序号', primary_key=True)
+    product_recycle_id = models.IntegerField(verbose_name='产品重工id', default=0)
+    product_name = models.CharField(verbose_name='产品名', default=0, max_length=32)
+    product_number = models.FloatField(verbose_name='产品数量', default=0)
+
+
+# 产品重工入库表
+class ProductRecycleNormalIn(models.Model):
+    product_recycle_id = models.AutoField(verbose_name='产品重工id', primary_key=True)
+    apply_user_id = models.IntegerField(verbose_name='申请人id', default=3)
+    create_time = models.CharField(verbose_name='申请创建时间', max_length=32, default='未填写')
+    production_order_id = models.CharField(verbose_name='生产指令单id', max_length=32)
+    quality_confirm = models.IntegerField(verbose_name='品控确认', default=0)
+    product_recycle_img = models.CharField(verbose_name='产品重工单', max_length=32)
+    warehousing_confirm = models.IntegerField(verbose_name='仓库确认', default=2)
+    quality_confirm_time = models.CharField(verbose_name='品控确认时间', max_length=32,
+                                            default='yyyy-mm-dd hh:mm:ss')
+    warehousing_confirm_time = models.CharField(verbose_name='仓库确认时间', max_length=32,
+                                                default='yyyy-mm-dd hh:mm:ss')
+
+# 连接产品重工入库表
+class LinkProductRecycleNormalIn(models.Model):
+    index = models.AutoField(verbose_name='序号', primary_key=True)
+    product_recycle_id = models.IntegerField(verbose_name='产品重工id', default=0)
+    product_name = models.CharField(verbose_name='产品名', default=0, max_length=32)
+    product_number = models.FloatField(verbose_name='产品数量', default=0)

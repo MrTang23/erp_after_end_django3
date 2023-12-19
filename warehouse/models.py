@@ -102,7 +102,7 @@ class MaterialOutFactory(models.Model):
     general_manager_confirm = models.IntegerField(verbose_name='总经理确认', default=2)
     warehousing_confirm = models.IntegerField(verbose_name='仓库确认', default=2)
     deputy_manager_confirm_time = models.CharField(verbose_name='副总经理确认时间', max_length=32,
-                                                   default='yyyy-mm-dd hh:mm:ss')
+                                                           default='yyyy-mm-dd hh:mm:ss')
     general_manager_confirm_time = models.CharField(verbose_name='总经理确认时间', max_length=32,
                                                     default='yyyy-mm-dd hh:mm:ss')
     warehousing_confirm_time = models.CharField(verbose_name='仓库确认时间', max_length=32,

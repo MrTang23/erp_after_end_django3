@@ -184,7 +184,7 @@ def product_shipment(request):
                     else:
                         product_number_stock = product_number_stock_queryset.product_semi_finished_number
                     # 可出货量与实际库存比较
-                    if 0 < item.get('product_number') < product_number_stock:
+                    if 0 < item.get('product_number') <= product_number_stock:
                         product_models.LinkProductShipmentNormal.objects.create(product_shipment_id=product_shipment_id,
                                                                                 product_name=item.get('product_name'),
                                                                                 product_number=item.get(
@@ -212,6 +212,96 @@ def product_shipment(request):
             else:
                 # 删除基本表刚写入数据
                 product_models.ProductShipmentNormal.objects.filter(product_shipment_id=product_shipment_id).delete()
+                res = {
+                    'code': 0,
+                    'data': '',
+                    'msg': '产品不存在'
+                }
+                return JsonResponse(res)
+        res = {
+            'code': 1,
+            'data': '',
+            'msg': '产品出货成功'
+        }
+        return JsonResponse(res)
+    else:
+        res = {
+            'code': 0,
+            'data': '',
+            'msg': '指令单不存在或指令单未激活'
+        }
+        return JsonResponse(res)
+
+
+# 产品重工出库
+def product_recycle_out(request):
+    body = json.loads(request.body)
+    # 判断指令单是否存在以及指令单状态
+    if order_models.ProductionOrder.objects.filter(
+            production_order_id=body.get('production_order_id')) and order_models.ProductionOrder.objects.filter(
+        production_order_status=1):
+
+        # 写入材料重工出库基本表
+        product_models.ProductRecycleNormalOut.objects.create(apply_user_id=body.get('user_id'),
+                                                              create_time=body.get('create_time'),
+                                                              production_order_id=body.get('production_order_id'),
+                                                              product_recycle_img=body.get('product_recycle_img'),
+                                                              )
+
+        # 获取新增的基本表数据的id以及需要领取的材料列表
+        product_recycle_list = product_models.ProductRecycleNormalOut.objects.filter(
+            create_time=body.get('create_time')).first()
+        product_recycle_id = product_recycle_list.product_recycle_id
+        product_list = body.get('product_list')
+
+        # 循环便利需要入库的列表
+        for item in product_list:
+
+            # 判断该产品是否存在
+            if product_models.Product.objects.filter(product_name=item.get('product_name')):
+                # 判断是否超出该订单
+                production_order_queryset = order_models.LinkProductionOrderByProduct.objects.filter(
+                    production_order_id=body.get('production_order_id'), product_name=item.get('product_name')).first()
+                # 判断需要入库的产品是否就是指令单的产品
+                if production_order_queryset.product_name == item.get('product_name'):
+                    can_recycle_number = (production_order_queryset.product_received_number -
+                                          production_order_queryset.product_shipped_number)
+                    product_number_stock_queryset = product_models.Product.objects.filter(
+                        product_name=item.get('product_name')).first()
+                    if production_order_queryset.if_semi_finished == 0:
+                        product_number_stock = product_number_stock_queryset.product_number
+                    else:
+                        product_number_stock = product_number_stock_queryset.product_semi_finished_number
+                    # 可出重工量与实际库存比较
+                    if item.get('product_number') <= product_number_stock and item.get(
+                            'product_number') <= can_recycle_number:
+                        product_models.LinkProductRecycleNormalOut.objects.create(product_recycle_id=product_recycle_id,
+                                                                                product_name=item.get('product_name'),
+                                                                                product_number=item.get(
+                                                                                    'product_number')),
+                    else:
+                        product_models.ProductRecycleNormalOut.objects.filter(
+                            product_recycle_id=product_recycle_id).delete()
+                        res = {
+                            'code': 0,
+                            'data': '',
+                            'msg': '订单已出货完毕，或库存不足'
+                        }
+                        return JsonResponse(res)
+                else:
+                    product_models.ProductRecycleNormalOut.objects.filter(
+                        product_recycle_id=product_recycle_id).delete()
+                    res = {
+                        'code': 0,
+                        'data': '',
+                        'msg': '非指令单产品，无法出货'
+                    }
+                    return JsonResponse(res)
+
+            else:
+                # 删除基本表刚写入数据
+                product_models.ProductRecycleNormalOut.objects.filter(
+                    product_recycle_id=product_recycle_id).delete()
                 res = {
                     'code': 0,
                     'data': '',

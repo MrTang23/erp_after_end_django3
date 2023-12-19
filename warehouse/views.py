@@ -5,6 +5,19 @@ from warehouse import models as warehouse_models
 from order import models as order_models
 
 
+def test_function(request):
+    body = json.loads(request.body)
+    a = body.get('a')
+    b = body.get('b')
+    c = a * b
+    res = {
+        'code': 1,
+        'data': c,
+        'msg': '运算成功'
+    }
+    return JsonResponse(res)
+
+
 # 添加材料
 def add_new_material(request):
     body = json.loads(request.body)
@@ -48,7 +61,6 @@ def material_get_normal(request):
             create_time=body.get('create_time')).first()
         material_get_id = material_get_list.material_get_id
         material_list = body.get('material_list')
-
         # 循环便利需要入库的列表
         for item in material_list:
 
@@ -67,7 +79,7 @@ def material_get_normal(request):
                     row_material_weight = stock_material_weight_queryset.recycle_material_weight
 
                 # 判断是否领用超出库存
-                if item.get('material_weight') < row_material_weight:
+                if item.get('material_weight') <= row_material_weight:
 
                     # 判断是否超出该订单对应原料可领取数量
                     production_order_weight_queryset = order_models.LinkProductionOrderByMaterial.objects.filter(
@@ -127,7 +139,8 @@ def material_out_factory(request):
     if body.get('role_id') == 5:
         # 写入采购表
         warehouse_models.MaterialOutFactory.objects.create(apply_user_id=body.get('user_id'),
-                                                           create_time=body.get('create_time'))
+                                                           create_time=body.get('create_time'),
+                                                           material_out_factory_img=body.get('material_out_factory_img'))
         out_list = warehouse_models.MaterialOutFactory.objects.filter(create_time=body.get('create_time')).first()
         out_id = out_list.material_out_factory_id
         material_list = body.get('material_list')
@@ -190,8 +203,7 @@ def material_back(request):
         # 写入退库表
         warehouse_models.MaterialBack.objects.create(apply_user_id=body.get('user_id'),
                                                      create_time=body.get('create_time'),
-                                                     back_warehouse_img=body.get('back_warehouse_img'),
-                                                     production_order_status=body.get('production_order_status'))
+                                                     back_warehouse_img=body.get('back_warehouse_img'))
         back_list = warehouse_models.MaterialBack.objects.filter(create_time=body.get('create_time')).first()
         back_id = back_list.material_back_id
         material_list = body.get('material_list')
@@ -208,7 +220,6 @@ def material_back(request):
                                                                  back_remark=material_item.get(
                                                                      'back_remark')
                                                                  )
-
             else:
                 warehouse_models.MaterialBack.objects.filter(material_back_id=back_id).delete()
                 res = {
@@ -237,7 +248,7 @@ def get_material_stock(request):
             'material_id': item.material_id,
             'material_name': item.material_name,
             'material_supplier': item.material_supplier,
-            'material_type':item.material_type,
+            'material_type': item.material_type,
             'material_product_supplier': item.material_product_supplier,
             'material_weight': item.material_weight,
             'recycle_material_weight': item.recycle_material_weight,
