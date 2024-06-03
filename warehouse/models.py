@@ -12,7 +12,7 @@ class RawMaterial(models.Model):
     material_product_supplier = models.CharField(verbose_name='生产厂商名称', max_length=32, default='生产厂商')
     material_weight = models.FloatField(verbose_name='原料重量', default=0)
     recycle_material_weight = models.FloatField(verbose_name="水口料重量", default=0)
-    shelf_number = models.CharField(verbose_name='货架编号', default='无',max_length=10)
+    shelf_number = models.CharField(verbose_name='货架编号', default='无', max_length=10)
     remark = models.CharField(verbose_name='备注', max_length=50, default='无备注')
 
     class Meta:
@@ -102,14 +102,14 @@ class MaterialOutFactory(models.Model):
     general_manager_confirm = models.IntegerField(verbose_name='总经理确认', default=2)
     warehousing_confirm = models.IntegerField(verbose_name='仓库确认', default=2)
     deputy_manager_confirm_time = models.CharField(verbose_name='副总经理确认时间', max_length=32,
-                                                           default='yyyy-mm-dd hh:mm:ss')
+                                                   default='yyyy-mm-dd hh:mm:ss')
     general_manager_confirm_time = models.CharField(verbose_name='总经理确认时间', max_length=32,
                                                     default='yyyy-mm-dd hh:mm:ss')
     warehousing_confirm_time = models.CharField(verbose_name='仓库确认时间', max_length=32,
                                                 default='yyyy-mm-dd hh:mm:ss')
 
 
-# 材料出厂连接材料表名
+# 材料出厂连接材料表
 class LinkMaterialOutFactory(models.Model):
     index = models.AutoField(verbose_name='序号', primary_key=True)
     material_out_factory_id = models.IntegerField(verbose_name='材料出厂单id')

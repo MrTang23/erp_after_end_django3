@@ -24,7 +24,7 @@ SECRET_KEY = 's=!va360v6lin)=1)yc05^e73dy=r1zx@cpym)6ysz)$^$wap!'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -35,7 +35,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'corsheaders',
+    'corsheaders',  # 注册app corsheaders
+    'django_extensions',
     'warehouse.apps.WarehouseConfig',
     'login.apps.LoginConfig',
     'order.apps.OrderConfig',
@@ -55,35 +56,20 @@ MIDDLEWARE = [
 ]
 
 # 跨域增加忽略
-CORS_ALLOW_CREDENTIALS = True  # 允许携带Cookie
-CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_WHITELIST = (
-    ['http://127.0.0.1:*']
-)
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = '*'
 
-CORS_ALLOW_METHODS = (
-    'DELETE',
+# 配置允许的请求方式
+CORS_ALLOW_METHODS = [
+    '*',  # * 表示允许全部请求头
     'GET',
-    'OPTIONS',
-    'PATCH',
     'POST',
     'PUT',
-    'VIEW',
-)
-
-CORS_ALLOW_HEADERS = (
-    'XMLHttpRequest',
-    'X_FILENAME',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-    'Pragma',
-)
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
+]
 
 ROOT_URLCONF = 'after_end_django3.urls'
 
@@ -110,19 +96,8 @@ WSGI_APPLICATION = 'after_end_django3.wsgi.application'
 
 DATABASES = {
     'default': {
-    #     'ENGINE': 'django.db.backends.mysql',
-    #     'NAME': "yixin_database",
-    #     'USER': 'amostang',
-    #     'PASSWORD': '20031005tzs',
-    #     'HOST': '47.122.2.184',
-    #     'PORT': 3306
-
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': "yixin_develop",
-        'USER': 'amos_develop',
-        'PASSWORD': '20031005tzs',
-        'HOST': '47.122.2.184',
-        'PORT': 3306
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR + '/db.sqlite3',
     }
 }
 

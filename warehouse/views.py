@@ -140,7 +140,8 @@ def material_out_factory(request):
         # 写入采购表
         warehouse_models.MaterialOutFactory.objects.create(apply_user_id=body.get('user_id'),
                                                            create_time=body.get('create_time'),
-                                                           material_out_factory_img=body.get('material_out_factory_img'))
+                                                           material_out_factory_img=body.get(
+                                                               'material_out_factory_img'))
         out_list = warehouse_models.MaterialOutFactory.objects.filter(create_time=body.get('create_time')).first()
         out_id = out_list.material_out_factory_id
         material_list = body.get('material_list')
