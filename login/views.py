@@ -4,7 +4,7 @@ import time
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
-from login import models
+from login.models import User
 from django.shortcuts import render
 
 
@@ -24,8 +24,8 @@ def login(request):
     body = json.loads(request.body)
     username = body.get('username')
     password = body.get('password')
-    if models.User.objects.filter(username=username):
-        user_info = models.User.objects.filter(username=username).first()
+    if User.objects.filter(username=username):
+        user_info = User.objects.filter(username=username).first()
         if user_info.password == password:
             res = {
                 "code": 1,
@@ -57,9 +57,9 @@ def change_user_info(request):
     user_id = body.get('user_id')
     new_password = body.get('new_password')
     new_username = body.get('new_username')
-    if models.User.objects.filter(user_id=user_id):
-        models.User.objects.filter(user_id=user_id).update(password=new_password)
-        models.User.objects.filter(user_id=user_id).update(username=new_username)
+    if User.objects.filter(user_id=user_id):
+        User.objects.filter(user_id=user_id).update(password=new_password)
+        User.objects.filter(user_id=user_id).update(username=new_username)
         res = {
             "code": 1,
             "msg": "个人信息更新成功"
